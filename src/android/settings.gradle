@@ -1,0 +1,6 @@
+rootProject.name = "Superawesome"
+include("app", "plugin")
+
+if (settings.hasProperty('coronaExpansionFileName')) {
+	include("preloadedAssets")
+}

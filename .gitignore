@@ -1,1 +1,4 @@
 plugins/*.tgz
+*xcuser*
+BuiltPlugin/
+src/ios/libSuperAwesomePlugin.a

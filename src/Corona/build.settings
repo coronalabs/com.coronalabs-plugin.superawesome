@@ -1,0 +1,26 @@
+settings =
+{
+	orientation = {
+		default = "portrait",
+		supported = { "portrait", "landscapeLeft", "landscapeRight" }
+	},
+
+	iphone =
+	{
+		xcassets = "Images.xcassets",
+		plist =
+		{
+			UILaunchStoryboardName = "LaunchScreen",
+		},
+	},
+
+
+	plugins =
+	{
+		["plugin.superawesome"] =
+		{
+			publisherId = "com.coronalabs",
+			supportedPlatforms = { iphone = true, ["iphone-sim"] = true, android = true }
+		}
+	}
+}
