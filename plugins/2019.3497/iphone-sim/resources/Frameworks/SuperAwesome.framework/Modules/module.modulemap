@@ -1,0 +1,11 @@
+framework module SuperAwesome {
+  umbrella header "SuperAwesome-umbrella.h"
+
+  export *
+  module * { export * }
+}
+
+module SuperAwesome.Swift {
+    header "SuperAwesome-Swift.h"
+    requires objc
+}

@@ -37,6 +37,7 @@ import com.ansca.corona.CoronaRuntimeTaskDispatcher;
 import com.ansca.corona.CoronaLuaEvent;
 
 // SDK provider imports
+import tv.superawesome.sdk.publisher.AwesomeAds;
 import tv.superawesome.sdk.publisher.SABannerAd;
 import tv.superawesome.sdk.publisher.SAInterstitialAd;
 import tv.superawesome.sdk.publisher.SAVideoAd;
@@ -52,8 +53,8 @@ import tv.superawesome.sdk.publisher.SAInterface;
  */
 public class LuaLoader implements JavaFunction, CoronaRuntimeListener {
     private static final String PLUGIN_NAME = "plugin.superawesome";
-    private static final String PLUGIN_VERSION = "2.0.6";
-    private static final String PLUGIN_SDK_VERSION = "6.1.6"; // no API get get SDK version (yet)
+    private static final String PLUGIN_VERSION = "2.0.8";
+    private static final String PLUGIN_SDK_VERSION = "8.3.6"; // no API get get SDK version (yet)
 
     private static final String EVENT_NAME = "adsRequest";
     private static final String PROVIDER_NAME = "superawesome";
@@ -464,6 +465,7 @@ public class LuaLoader implements JavaFunction, CoronaRuntimeListener {
 
             // save setting for future use
             superAwesomeObjects.put(TESTMODE_KEY, testMode);
+            AwesomeAds.init(CoronaEnvironment.getCoronaActivity(), testMode);
 
             // log the plugin version to device console
             Log.i(CORONA_TAG, PLUGIN_NAME + ": " + PLUGIN_VERSION + " (SDK: " + PLUGIN_SDK_VERSION + ")");

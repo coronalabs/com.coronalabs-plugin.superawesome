@@ -15,7 +15,11 @@
 #import "CoronaLibrary.h"
 
 #import "SuperAwesomeLibrary.h"
-#import "SuperAwesome.h"
+#import <WebKit/WebKit.h>
+#import <AVFoundation/AVFoundation.h>
+#import <SuperAwesome/SuperAwesome.h>
+#import <SuperAwesome/SuperAwesome-Swift.h>
+
 
 // some macros to make life easier, and code more readable
 #define UTF8StringWithFormat(format, ...) [[NSString stringWithFormat:format, ##__VA_ARGS__] UTF8String]
@@ -27,8 +31,8 @@
 // ----------------------------------------------------------------------------
 
 #define PLUGIN_NAME        "plugin.superawesome"
-#define PLUGIN_VERSION     "2.0.6"
-#define PLUGIN_SDK_VERSION "6.1.9" // no API to get SDK version (yet)
+#define PLUGIN_VERSION     "2.0.8"
+#define PLUGIN_SDK_VERSION "8.3.6" // no API to get SDK version (yet)
 
 static const char EVENT_NAME[]    = "adsRequest";
 static const char PROVIDER_NAME[] = "superawesome";
@@ -114,14 +118,14 @@ static NSString * const TESTMODE_KEY = @"testMode";
 @end
 
 // ----------------------------------------------------------------------------
-
+typedef void (^_Nonnull sacallback)(NSInteger placementId, SAEvent event);
 @interface SuperAwesomeDelegate: NSObject
 
 @property (nonatomic, assign) CoronaLuaRef      coronaListener;
 @property (nonatomic, weak)   id<CoronaRuntime> coronaRuntime;
 @property (nonatomic, copy)   sacallback        saInterstitialCallback;
 @property (nonatomic, copy)   sacallback        saVideoCallback;
-@property (nonatomic, copy)   sacallback        saBannerCallback;
+@property (nonatomic, copy)   sacallback       saBannerCallback;
 
 - (void)dispatchLuaEvent:(NSDictionary *)dict;
 
@@ -360,13 +364,16 @@ SuperAwesomeLibrary::init(lua_State *L)
       return 0;
     }
   }
-  
+    
+    
+    
   // set the delegates (banners are set on each instance)
   [SAInterstitialAd setCallback:superAwesomeDelegate.saInterstitialCallback];
   [SAVideoAd setCallback:superAwesomeDelegate.saVideoCallback];
   
   // save setting for future use
   superAwesomeObjects[TESTMODE_KEY] = @(testMode);
+  [AwesomeAds initSDK:testMode];
   
   // log the plugin version to device console
   NSLog(@"%s: %s (SDK: %s)", PLUGIN_NAME, PLUGIN_VERSION, PLUGIN_SDK_VERSION);
@@ -529,23 +536,23 @@ SuperAwesomeLibrary::load(lua_State *L)
     // create ad info object to hold extra information not available in the SDK
     CoronaSuperAwesomeAdInstance *adInstance = [[CoronaSuperAwesomeAdInstance alloc] initWithAd:nil adType:@(TYPE_INTERSTITIAL)];
     superAwesomeObjects[@(placementId)] = adInstance;
+      dispatch_async(dispatch_get_main_queue(), ^(void){
+          [SAInterstitialAd load:atoi(placementId)];
+      });
     
-    [SAInterstitialAd load:atoi(placementId)];
   }
   else if (UTF8IsEqual(adUnitType, TYPE_VIDEO)) {
     [SAVideoAd setTestMode:testMode];
-    
     // create ad info object to hold extra information not available in the SDK
     CoronaSuperAwesomeAdInstance *adInstance = [[CoronaSuperAwesomeAdInstance alloc] initWithAd:nil adType:@(TYPE_VIDEO)];
     superAwesomeObjects[@(placementId)] = adInstance;
-    
     [SAVideoAd load:atoi(placementId)];
   }
   else if (UTF8IsEqual(adUnitType, TYPE_BANNER)) {
     if (oldInstance != nil) {
       SABannerAd *banner = (SABannerAd *)oldInstance.adInstance;
       if ([banner hasAdAvailable]) {
-        superAwesomeDelegate.saBannerCallback(atoi(placementId), adAlreadyLoaded);
+        superAwesomeDelegate.saBannerCallback(atoi(placementId), SAEventAdAlreadyLoaded);
         return 0;
       }
     }
@@ -811,17 +818,17 @@ SuperAwesomeLibrary::show(lua_State *L)
     [SAInterstitialAd setParentalGate:useParentalGate];
     
     if (lockOrientation == NULL) {
-      [SAInterstitialAd setOrientation:ANY];
+      [SAInterstitialAd setOrientation:OrientationAny];
     }
     else if (UTF8IsEqual(lockOrientation, LOCK_LANDSCAPE)) {
-      [SAInterstitialAd setOrientation:LANDSCAPE];
+      [SAInterstitialAd setOrientation:OrientationLandscape];
     }
     else if (UTF8IsEqual(lockOrientation, LOCK_PORTRAIT)) {
-      [SAInterstitialAd setOrientation:PORTRAIT];
+      [SAInterstitialAd setOrientation:OrientationPortrait];
     }
     else {
       logMsg(L, WARNING_MSG, MsgFormat(@"lockOrientation '%s' invalid. Using default 'any' orientation", lockOrientation));
-      [SAInterstitialAd setOrientation:ANY];
+      [SAInterstitialAd setOrientation:OrientationAny];
     }
     
     [SAInterstitialAd play:atoi(placementId) fromVC:library.coronaViewController];
@@ -838,17 +845,17 @@ SuperAwesomeLibrary::show(lua_State *L)
     [SAVideoAd setCloseAtEnd:closeVideoAtEnd];
     
     if (lockOrientation == NULL) {
-      [SAVideoAd setOrientation:ANY];
+      [SAVideoAd setOrientation:OrientationAny];
     }
     else if (UTF8IsEqual(lockOrientation, LOCK_LANDSCAPE)) {
-      [SAVideoAd setOrientation:LANDSCAPE];
+      [SAVideoAd setOrientation:OrientationLandscape];
     }
     else if (UTF8IsEqual(lockOrientation, LOCK_PORTRAIT)) {
-      [SAVideoAd setOrientation:PORTRAIT];
+      [SAVideoAd setOrientation:OrientationPortrait];
     }
     else {
       logMsg(L, WARNING_MSG, MsgFormat(@"lockOrientation '%s' invalid. Using default 'any' orientation", lockOrientation));
-      [SAVideoAd setOrientation:ANY];
+      [SAVideoAd setOrientation:OrientationAny];
     }
     
     [SAVideoAd play:atoi(placementId) fromVC:library.coronaViewController];
@@ -981,8 +988,7 @@ SuperAwesomeLibrary::hide(lua_State *L)
 {
   const char *pid = UTF8StringWithFormat(@"%ld", (long)placementId);
   
-  
-  if (event == adLoaded) {
+  if (event == SAEventAdLoaded) {
     // send Corona Lua event
     NSDictionary *coronaEvent = @{
       @(CoronaEventPhaseKey()): PHASE_LOADED,
@@ -992,7 +998,7 @@ SuperAwesomeLibrary::hide(lua_State *L)
     [superAwesomeDelegate dispatchLuaEvent:coronaEvent];
     
   }
-  else if (event == adEmpty) {
+  else if (event == SAEventAdEmpty) {
     // send Corona Lua event
     NSDictionary *coronaEvent = @{
       @(CoronaEventPhaseKey()): PHASE_FAILED,
@@ -1003,7 +1009,7 @@ SuperAwesomeLibrary::hide(lua_State *L)
     };
     [superAwesomeDelegate dispatchLuaEvent:coronaEvent];
   }
-  else if (event == adFailedToLoad) {
+  else if (event == SAEventAdFailedToLoad) {
     // send Corona Lua event
     NSDictionary *coronaEvent = @{
       @(CoronaEventPhaseKey()): PHASE_FAILED,
@@ -1014,7 +1020,7 @@ SuperAwesomeLibrary::hide(lua_State *L)
     };
     [superAwesomeDelegate dispatchLuaEvent:coronaEvent];
   }
-  else if (event == adShown) {
+  else if (event == SAEventAdShown) {
     // send Corona Lua event
     NSDictionary *coronaEvent = @{
       @(CoronaEventPhaseKey()): PHASE_DISPLAYED,
@@ -1024,7 +1030,7 @@ SuperAwesomeLibrary::hide(lua_State *L)
     [superAwesomeDelegate dispatchLuaEvent:coronaEvent];
     
   }
-  else if (event == adFailedToShow) {
+  else if (event == SAEventAdFailedToShow) {
     // send Corona Lua event
     NSDictionary *coronaEvent = @{
       @(CoronaEventPhaseKey()): PHASE_FAILED,
@@ -1035,7 +1041,7 @@ SuperAwesomeLibrary::hide(lua_State *L)
     };
     [superAwesomeDelegate dispatchLuaEvent:coronaEvent];
   }
-  else if (event == adClicked) {
+  else if (event == SAEventAdClicked) {
     // send Corona Lua event
     NSDictionary *coronaEvent = @{
       @(CoronaEventPhaseKey()): PHASE_CLICKED,
@@ -1044,7 +1050,7 @@ SuperAwesomeLibrary::hide(lua_State *L)
     };
     [superAwesomeDelegate dispatchLuaEvent:coronaEvent];
   }
-  else if (event == adClosed) {
+  else if (event == SAEventAdClosed) {
     // send Corona Lua event
     NSDictionary *coronaEvent = @{
       @(CoronaEventPhaseKey()): ([adType isEqualToString:@(TYPE_BANNER)]) ? PHASE_HIDDEN : PHASE_CLOSED,
@@ -1053,7 +1059,7 @@ SuperAwesomeLibrary::hide(lua_State *L)
     };
     [superAwesomeDelegate dispatchLuaEvent:coronaEvent];
   }
-  else if (event == adEnded) {
+  else if (event == SAEventAdEnded) {
     // send Corona Lua event
     NSDictionary *coronaEvent = @{
       @(CoronaEventPhaseKey()): PHASE_PLAYBACK_ENDED,
@@ -1062,7 +1068,7 @@ SuperAwesomeLibrary::hide(lua_State *L)
     };
     [superAwesomeDelegate dispatchLuaEvent:coronaEvent];
   }
-  else if (event == adAlreadyLoaded) {
+  else if (event == SAEventAdAlreadyLoaded) {
     // send Corona Lua event
     NSDictionary *coronaEvent = @{
       @(CoronaEventPhaseKey()): PHASE_FAILED,

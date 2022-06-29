@@ -10,7 +10,16 @@ settings =
 		xcassets = "Images.xcassets",
 		plist =
 		{
+            NSCalendarsUsageDescription = "This app would like to add events to the calendar.",
+            NSPhotoLibraryUsageDescription = "This app would like to access the photo library.",
+            NSCameraUsageDescription = "This app would like to access the camera.",
+            NSMotionUsageDescription = "This app would like to use interactive ad controls.",
+            NSUserTrackingUsageDescription = "To serve more releavant ads",
 			UILaunchStoryboardName = "LaunchScreen",
+            SKAdNetworkItems = {
+                { SKAdNetworkIdentifier = "dcc91689qj.skadnetwork" },
+            },
+            NSAppTransportSecurity = { NSAllowsArbitraryLoads=true },
 		},
 	},
 

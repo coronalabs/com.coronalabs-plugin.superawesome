@@ -1,0 +1,10 @@
+android.defaultConfig {
+    minSdkVersion Math.max(minSdkVersion?.apiLevel ?: 15, 19)
+}
+ext["minSdkVersion"] = Math.max(ext.find("minSdkVersion")?:15, 19)
+repositories {
+    maven { url "https://aa-sdk.s3-eu-west-1.amazonaws.com/android_repo" }
+}
+dependencies {
+	implementation "tv.superawesome.sdk.publisher:superawesome:8.3.6"
+}
